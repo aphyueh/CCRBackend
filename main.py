@@ -3,24 +3,29 @@ from flask_cors import CORS
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 from datetime import timedelta
+from tensorflow.keras.models import load_model
 import tempfile
 import uuid
 import os
+from model.inference import remove_colour_cast
 
 app = Flask(__name__)
 CORS(app)  
 
 BUCKET_NAME = "cityscapes-dataset-package3"
+model = load_model("model/model.keras")
 
 storage_client = storage.Client()
 
+@app.route("/api/hello", methods=["GET"])
+def hello():
+    return jsonify({"message": "Hello from Python on Cloud Run!"})
 
-# def generate_signed_url(bucket_name, blob_name, expiration_minutes=90):
-#     bucket = storage_client.bucket(bucket_name)
-#     blob = bucket.blob(blob_name)
-#     url = blob.generate_signed_url(expiration=timedelta(minutes=expiration_minutes))
-#     print("[SUCCESS] Generated signed URL")
-#     return url
+def preprocess_image(image_bytes):
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image = image.resize((224, 224))  # adjust based on your model input
+    img_array = np.array(image) / 255.0
+    return np.expand_dims(img_array, axis=0)
 
 def upload_to_bucket(bucket_name, file_obj, destination_blob_name, content_type):
     bucket = storage_client.bucket(bucket_name)
@@ -34,12 +39,26 @@ def upload_to_bucket(bucket_name, file_obj, destination_blob_name, content_type)
     print("Blob URL:", blob.public_url)
     return blob.public_url
 
-@app.route("/api/hello", methods=["GET"])
-def hello():
-    return jsonify({"message": "Hello from Python on Cloud Run!"})
+def remove_color_cast_to_file(
+    img_bytes: bytes,
+    brightness: float = 100.0,
+    noise: float = 0.0,
+    contrast: float = 100.0
+) -> str:
+    # Run your model to get output bytes
+    output_bytes = remove_colour_cast(
+        img_bytes,
+        brightness_pct=brightness,
+        noise_pct=noise,
+        contrast_pct=contrast,
+    )
+    print(f"[server] Successfully removed colour cast! Got output_bytes of length {len(output_bytes)}")
 
-def remove_color_cast(input_image_path):
-    return input_image_path
+    # Save the result to a temporary file
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_output:
+        temp_output.write(output_bytes)
+        print(f"[server] Saved output to {temp_output.name}")
+        return temp_output.name
 
 @app.route('/api/process', methods=['POST'])
 def process_image():
@@ -73,6 +92,7 @@ def process_image():
         
         # Reset the file pointer and upload original image
         image.seek(0)
+        original_width, original_height = image.size
         before_blob_name = f"uploads/before_{filename}"
         before_url = upload_to_bucket(
             BUCKET_NAME, 
@@ -82,9 +102,17 @@ def process_image():
         )
         print("[#] Successfully uploaded input image to bucket", flush=True)
 
+        with open(input_path, 'rb') as f:
+            img_bytes = f.read()
 
-        # Process the image to remove color cast
-        output_path = remove_color_cast(input_path)
+        # Process the image and get a temporary output path
+        output_path = remove_color_cast_to_file(
+            img_bytes,
+            brightness=100.0,   # or dynamic values if available
+            noise=0.0,
+            contrast=100.0
+        )
+
         print("[#] Successfully processed image", flush=True)
 
         after_blob_name = f"uploads/after_{filename}"
@@ -98,15 +126,7 @@ def process_image():
             )
         print("[#] Successfully uploaded output image to bucket", flush=True)
         
-        # Convert both files to base64-encoded data URLs
-        # def to_data_url(path, mime_type):
-        #     with open(path, "rb") as img_f:
-        #         encoded = base64.b64encode(img_f.read()).decode('utf-8')
-        #         return f"data:{mime_type};base64,{encoded}"
-
         content_type = image.content_type or "image/jpeg"
-        # before_url = to_data_url(input_path, content_type)
-        # after_url = to_data_url(output_path, content_type)
         
         # Clean up temporary files
         os.unlink(input_path)
