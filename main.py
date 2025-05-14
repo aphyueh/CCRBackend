@@ -1,11 +1,14 @@
+import cv2
 from datetime import timedelta
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
+import io
 from model.inference import remove_color_cast
+import numpy as np
 import os
-from tensorflow.keras.models import load_model
+from PIL import Image
 import tempfile
 import uuid
 
@@ -13,7 +16,6 @@ app = Flask(__name__)
 CORS(app)  
 
 BUCKET_NAME = "cityscapes-dataset-package3"
-model = load_model("model/model.keras")
 
 storage_client = storage.Client()
 
@@ -84,7 +86,7 @@ def process_image():
         
         # Reset the file pointer and upload original image
         image.seek(0)
-        original_width, original_height = image.size
+        print("[*] Reset file pointer", flush=True)
         before_blob_name = f"uploads/before_{filename}"
         before_url = upload_to_bucket(
             BUCKET_NAME, 
@@ -177,6 +179,20 @@ def adjust_image():
     buf.seek(0)
 
     return send_file(buf, mimetype='image/png')
+
+@app.route('/api/histogram', methods=['POST'])
+def histogram():
+    file = request.files['image']
+    image = Image.open(file).convert('RGB')
+    np_img = np.array(image)
+
+    histogram_data = {}
+    colors = ('r', 'g', 'b')
+    for i, color in enumerate(colors):
+        hist = cv2.calcHist([np_img], [i], None, [256], [0, 256]).flatten()
+        histogram_data[color] = hist.tolist()
+
+    return jsonify(histogram_data)
 
 
 if __name__ == "__main__":
