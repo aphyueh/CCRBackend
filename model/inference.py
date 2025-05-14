@@ -7,42 +7,10 @@ from PIL import Image, ImageEnhance
 import tensorflow as tf
 
 from .model import ColorCastRemoval
-
+from .utils import  rgb_to_lab_normalized, numpy_lab_normalized_to_rgb_clipped
 
 _MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.keras")
 _model = None
-
-# Minimal LAB conversion utilities (extracted from utils.py)
-def rgb_to_lab_normalized(rgb):
-    """Convert RGB image to normalized LAB space (L: [0,1], a,b: [0,1])"""
-    # Convert RGB to BGR for OpenCV
-    bgr = rgb[..., ::-1]  # RGB to BGR
-    
-    # Convert to LAB using TensorFlow
-    # Normalize inputs to [0,1]
-    lab = tf.image.rgb_to_lab(rgb)
-    
-    # Normalize to [0,1] ranges
-    l = lab[..., 0:1] / 100.0  # L from [0,100] to [0,1]
-    a = (lab[..., 1:2] + 128.0) / 255.0  # a from [-128,127] to [0,1]
-    b = (lab[..., 2:3] + 128.0) / 255.0  # b from [-128,127] to [0,1]
-    
-    return np.concatenate([l, a, b], axis=-1)
-
-def numpy_lab_normalized_to_rgb_clipped(lab_norm):
-    """Convert normalized LAB values back to RGB and clip to valid range"""
-    # Denormalize from [0,1] back to LAB ranges
-    l = lab_norm[..., 0:1] * 100.0  # L from [0,1] to [0,100] 
-    a = lab_norm[..., 1:2] * 255.0 - 128.0  # a from [0,1] to [-128,127]
-    b = lab_norm[..., 2:3] * 255.0 - 128.0  # b from [0,1] to [-128,127]
-    
-    # Recombine channels
-    lab = np.concatenate([l, a, b], axis=-1)
-    
-    # Convert LAB to RGB using TensorFlow
-    rgb = tf.image.lab_to_rgb(lab)
-    
-    return np.array(rgb)
 
 def _get_model() -> tf.keras.Model:
     global _model
@@ -52,27 +20,23 @@ def _get_model() -> tf.keras.Model:
     print(f"[*] Model directory contents: {os.listdir(os.path.dirname(_MODEL_PATH))}")
     
     if _model is None:
-        # We'll only use the saved model approach - no fallback to training
-        try:
-            # Make sure the ColorCastRemoval class is properly registered
-            print(f"[*] Loading model with ColorCastRemoval class: {ColorCastRemoval}")
-            
-            # Custom objects dict to help with loading
-            custom_objects = {
-                'ColorCastRemoval': ColorCastRemoval
-            }
-            
-            # Load the model with custom objects
+        if os.path.exists(_MODEL_PATH):
+            # 1) Load the full .keras model
             _model = tf.keras.models.load_model(
-                _MODEL_PATH, 
-                custom_objects=custom_objects
+                _MODEL_PATH,
+                custom_objects={"ColorCastRemoval": ColorCastRemoval}
             )
-            print(f"[*] Successfully loaded Keras model from {_MODEL_PATH}")
-        except Exception as e:
-            print(f"[!] Error loading model: {str(e)}", file=sys.stderr)
-            import traceback
-            traceback.print_exc()
-            raise RuntimeError(f"Failed to load model from {_MODEL_PATH}: {str(e)}")
+            print(f"[*] Loaded Keras model from {_MODEL_PATH}")
+        else:
+            # 2) Fallback: build from scratch + checkpoint
+            _model = ColorCastRemoval()
+            ckpt = tf.train.Checkpoint(model=_model)
+            latest = tf.train.latest_checkpoint("./ml/checkpoints")
+            if latest:
+                ckpt.restore(latest).expect_partial()
+                print(f"[*] Restored from checkpoint: {latest}")
+            else:
+                print("[!] No checkpoint found; using untrained model")
     return _model
 
 
