@@ -13,7 +13,7 @@ import tempfile
 import uuid
 
 app = Flask(__name__)
-CORS(app)  
+CORS(app, resources={r"/api/*": {"origins": "https://ccrwebsite-1005035431569.asia-southeast1.run.app"}})  
 
 BUCKET_NAME = "cityscapes-dataset-package3"
 
@@ -22,12 +22,6 @@ storage_client = storage.Client()
 @app.route("/api/hello", methods=["GET"])
 def hello():
     return jsonify({"message": "Hello from Python on Cloud Run!"})
-
-# def preprocess_image(image_bytes):
-#     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-#     image = image.resize((224, 224))  # adjust based on your model input
-#     img_array = np.array(image) / 255.0
-#     return np.expand_dims(img_array, axis=0)
 
 def upload_to_bucket(bucket_name, file_obj, destination_blob_name, content_type):
     bucket = storage_client.bucket(bucket_name)
@@ -111,7 +105,7 @@ def process_image():
             after_url = upload_to_bucket(
                 BUCKET_NAME,
                 processed_file,
-                f"uploads/after_{filename}",
+                after_blob_name,
                 content_type=image.content_type or 'image/jpeg'
             )
         print("[#] Successfully uploaded output image to bucket", flush=True)
