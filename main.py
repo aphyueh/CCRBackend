@@ -1,6 +1,6 @@
 import cv2
 from datetime import timedelta
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, Response
 from flask_cors import CORS
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
@@ -82,13 +82,17 @@ def process_image():
         output_path = main_remove_color_cast(img_bytes)
         print("[*] Successfully processed image", flush=True)
 
-        return send_file(
-            output_path,
-            mimetype="image/png",
-            as_attachment=False,
-            download_name=f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
-        )
+        filename = f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
+        response = send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
+        response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
 
+        # return send_file(
+        #     output_path,
+        #     mimetype="image/png",
+        #     as_attachment=True,
+        #     download_name=f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
+        # )
         # # Reset the file pointer and upload original image
         # image.seek(0)
         # print("[*] Reset file pointer", flush=True)
