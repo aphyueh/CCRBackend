@@ -84,7 +84,7 @@ def process_image():
 
         filename = f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
         response = send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
-        response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+        # response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
 
         # return send_file(
