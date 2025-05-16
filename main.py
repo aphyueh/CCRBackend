@@ -16,6 +16,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "https://ccrwebsite-1005035431569.asia-southeast1.run.app"}})  
 
 BUCKET_NAME = "cityscapes-dataset-package3"
+TEMP_DIR = "/tmp/adjusted"
 
 storage_client = storage.Client()
 
@@ -74,56 +75,56 @@ def process_image():
         print("[*] Saved the image into /tmp", flush=True)
         
     try:
-        # Generate a unique filename for storage
-        filename = f"{uuid.uuid4()}_{image.filename}"
-        print("[*] Made filename with uuid", flush=True)
-        
-        # Reset the file pointer and upload original image
-        image.seek(0)
-        print("[*] Reset file pointer", flush=True)
-        before_blob_name = f"uploads/before_{filename}"
-        before_url = upload_to_bucket(
-            BUCKET_NAME, 
-            image, 
-            f"uploads/before_{filename}", 
-            content_type=image.content_type or 'image/jpeg'
-        )
-        print("[*] Successfully uploaded input image to bucket", flush=True)
-
         with open(input_path, 'rb') as f:
             img_bytes = f.read()
 
         # Process the image and get a temporary output path
         output_path = main_remove_color_cast(img_bytes)
-
         print("[*] Successfully processed image", flush=True)
 
-        after_blob_name = f"uploads/after_{filename}"
-        
-        # Upload the processed image
-        with open(output_path, 'rb') as processed_file:
-            after_url = upload_to_bucket(
-                BUCKET_NAME,
-                processed_file,
-                after_blob_name,
-                content_type=image.content_type or 'image/jpeg'
-            )
-        print("[#] Successfully uploaded output image to bucket", flush=True)
-        
-        content_type = image.content_type or "image/jpeg"
-        
-        # Clean up temporary files
-        os.unlink(input_path)
-        if output_path != input_path:
-            os.unlink(output_path)
+        return send_file(
+            output_path,
+            mimetype="image/png",
+            as_attachment=False
+        )
 
-        print("[#] Successfully cleaned up temporary files", flush=True)
         
-        return jsonify({
-            'message': 'Image processed successfully',
-            'before_url': before_url,
-            'after_url': after_url
-        })
+        # # Reset the file pointer and upload original image
+        # image.seek(0)
+        # print("[*] Reset file pointer", flush=True)
+        # before_blob_name = f"uploads/before_{filename}"
+        # before_url = upload_to_bucket(
+        #     BUCKET_NAME, 
+        #     image, 
+        #     f"uploads/before_{filename}", 
+        #     content_type=image.content_type or 'image/jpeg'
+        # )
+        # print("[*] Successfully uploaded input image to bucket", flush=True)
+
+        # after_blob_name = f"uploads/after_{filename}"
+        
+        # # Upload the processed image
+        # with open(output_path, 'rb') as processed_file:
+        #     after_url = upload_to_bucket(
+        #         BUCKET_NAME,
+        #         processed_file,
+        #         after_blob_name,
+        #         content_type=image.content_type or 'image/jpeg'
+        #     )
+        # print("[#] Successfully uploaded output image to bucket", flush=True)
+                
+        # Clean up temporary files
+        # os.unlink(input_path)
+        # if output_path != input_path:
+        #     os.unlink(output_path)
+
+        # print("[#] Successfully cleaned up temporary files", flush=True)
+        
+        # return jsonify({
+        #     # 'message': 'Image processed successfully',
+        #     # 'before_url': before_url,
+        #     'after_url': after_url
+        # })
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
