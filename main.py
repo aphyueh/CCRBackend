@@ -85,10 +85,10 @@ def process_image():
         return send_file(
             output_path,
             mimetype="image/png",
-            as_attachment=False
+            as_attachment=False,
+            download_name=f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
         )
 
-        
         # # Reset the file pointer and upload original image
         # image.seek(0)
         # print("[*] Reset file pointer", flush=True)
