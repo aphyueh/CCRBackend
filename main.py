@@ -5,15 +5,16 @@ from flask_cors import CORS
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 import io
-from model.inference import remove_color_cast
+from model.inference import remove_color_cast, initialize_model
 import numpy as np
 import os
 from PIL import Image
+import shutil
 import tempfile
 import uuid
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://ccrwebsite-1005035431569.asia-southeast1.run.app"}})  
+CORS(app, origins=["https://ccrwebsite-1005035431569.asia-southeast1.run.app"], supports_credentials=True)  
 
 BUCKET_NAME = "cityscapes-dataset-package3"
 TEMP_DIR = "/tmp/adjusted"
@@ -24,17 +25,42 @@ storage_client = storage.Client()
 def hello():
     return jsonify({"message": "Hello from Python on Cloud Run!"})
 
-def upload_to_bucket(bucket_name, file_obj, destination_blob_name, content_type):
-    bucket = storage_client.bucket(bucket_name)
-    print("Bucket:", bucket, flush=True)
-    blob = bucket.blob(destination_blob_name)
-    print("Blob:", blob, flush=True)
-    print("Content type:", content_type, flush=True)
-    blob.upload_from_file(file_obj)
-    print("Uploaded from file!")
-    blob.make_public() 
-    print("Blob URL:", blob.public_url)
-    return blob.public_url
+@app.route('/api/init_model', methods=['POST'])
+def handle_model_init():
+    initialize_model()
+    return {'status': 'model initialized'}, 200
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'https://ccrwebsite-1005035431569.asia-southeast1.run.app')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@app.route('/api/cleanup', methods=['POST'])
+def cleanup_temp_folder():
+    if os.path.exists(TEMP_DIR):
+        shutil.rmtree(TEMP_DIR)
+        os.makedirs(TEMP_DIR)  # Recreate empty folder
+    return {'status': 'cleanup done'}, 200
+
+@app.route('/api/debug-temp', methods=['GET'])
+def list_tmp_files():
+    if os.path.exists(TEMP_DIR):
+        return {'files': os.listdir(TEMP_DIR)}, 200
+    return {'files': []}, 200
+
+# def upload_to_bucket(bucket_name, file_obj, destination_blob_name, content_type):
+#     bucket = storage_client.bucket(bucket_name)
+#     print("Bucket:", bucket, flush=True)
+#     blob = bucket.blob(destination_blob_name)
+#     print("Blob:", blob, flush=True)
+#     print("Content type:", content_type, flush=True)
+#     blob.upload_from_file(file_obj)
+#     print("Uploaded from file!")
+#     blob.make_public() 
+#     print("Blob URL:", blob.public_url)
+#     return blob.public_url
 
 def main_remove_color_cast(
     img_bytes: bytes
@@ -83,9 +109,9 @@ def process_image():
         print("[*] Successfully processed image", flush=True)
 
         filename = f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
-        response = send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
+        # response = send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
         # response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
-        return response
+        return send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
 
         # return send_file(
         #     output_path,

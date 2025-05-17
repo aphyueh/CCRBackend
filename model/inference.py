@@ -83,5 +83,3 @@ def remove_color_cast(
         import traceback
         traceback.print_exc()
         raise RuntimeError(f"Failed during inference: {str(e)}")
-
-initialize_model()
