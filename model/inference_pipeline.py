@@ -38,6 +38,11 @@ EXTENSION_TO_FORMAT = {
 # --- Initialize Model ---
 def initialize_model():
     global model
+    global _model  
+    if _model is not None:
+        print("[INFO] Model already loaded. Skipping reload.", flush=True)
+        model = _model
+        return
     try:
         model = _get_model()
         print("[INFO] Model loaded successfully", flush=True)
