@@ -165,7 +165,6 @@ def postprocess_image_hybrid(rgb_image_np_0_1):
 # --- Main Inference Function ---
 def remove_color_cast(img_path: str) -> Tuple[bytes, str]:
     print(f"--- Starting Hybrid Inference ---", flush=True)
-    print(f"Arguments: {args}", flush=True)
     print(f"\nProcessing image {img_path}", flush=True)
     
     try:
