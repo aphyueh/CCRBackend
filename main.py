@@ -102,11 +102,12 @@ def inference():
         # Save the result to a temporary file
         with tempfile.NamedTemporaryFile(delete=False) as output_path:
             output_path.write(output_bytes)
+            output_file_path = output_path.name
             print(f"[server] Saved output to {output_path.name}")
 
         filename = f"processed_{str(uuid.uuid4())[:8]}_{image.filename}"
         mimetype = f"image/{img_format.lower()}" if img_format.lower() != "jpeg" else "image/jpeg"
-        return send_file(output_path, mimetype=mimetype, as_attachment=True,  download_name=filename)
+        return send_file(output_file_path, mimetype=mimetype, as_attachment=True,  download_name=filename)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
