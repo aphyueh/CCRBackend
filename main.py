@@ -5,7 +5,8 @@ from flask_cors import CORS
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 import io
-from model.inference import remove_color_cast, initialize_model
+# from model.inference import remove_color_cast, initialize_model
+from model.inference_pipeline import remove_color_cast, initialize_model
 import numpy as np
 import os
 from PIL import Image
@@ -29,13 +30,6 @@ def hello():
 def handle_model_init():
     initialize_model()
     return {'status': 'model initialized'}, 200
-
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://ccrwebsite-1005035431569.asia-southeast1.run.app')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    return response
 
 @app.route('/api/cleanup', methods=['POST'])
 def cleanup_temp_folder():
@@ -74,6 +68,48 @@ def main_remove_color_cast(
         temp_output.write(output_bytes)
         print(f"[server] Saved output to {temp_output.name}")
         return temp_output.name
+
+@app.route('/api/inference', methods=['POST'])
+def inference():
+    print("[INFO] Received request to process image", flush=True)
+    if 'image' not in request.files:
+        print("[ERROR] No image part in request.files", flush=True)
+        return jsonify({'error': 'No image uploaded'}), 400
+
+    image = request.files['image']
+    if image.filename == '':
+        print("[ERROR] Empty filename", flush=True)
+        return jsonify({'error': 'No selected file'}), 400
+
+    print("[*] Received file:", image.filename, flush=True)
+
+    # Get file extension
+    filename_ext = os.path.splitext(image.filename)[1].lower()
+    if filename_ext not in ['.jpg', '.jpeg', '.png', '.bmp']:
+        return jsonify({'error': 'Unsupported file type'}), 400
+
+    # Create a temporary file for the input image
+    with tempfile.NamedTemporaryFile(suffix=filename_ext, delete=False) as temp_input:
+        image.save(temp_input.name)
+        input_path = temp_input.name
+        print("[*] Saved the image into /tmp", flush=True)
+        
+    try:
+        # Process the image and get a temporary output path
+        output_bytes, img_format = remove_color_cast(input_path)
+        print("[*] Successfully processed image", flush=True)
+
+        # Save the result to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False) as output_path:
+            output_path.write(output_bytes)
+            print(f"[server] Saved output to {output_path.name}")
+
+        filename = f"processed_{str(uuid.uuid4())[:8]}_{image.filename}"
+        mimetype = f"image/{img_format.lower()}" if img_format.lower() != "jpeg" else "image/jpeg"
+        return send_file(output_path, mimetype=mimetype, as_attachment=True,  download_name=filename)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/process', methods=['POST'])
 def process_image():
