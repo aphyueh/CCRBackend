@@ -1,10 +1,9 @@
 import tensorflow as tf
-import argparse
 import os
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
+from skimage import exposure, color as skimage_color, filters, restoration
 
 
 # Define if ximgproc is available (optional, for advanced dehazing)
@@ -16,13 +15,6 @@ except ImportError:
     CV2_XIMGPROC_AVAILABLE = False
     print("[!] cv2.ximgproc module not found. Advanced dehazing (darkChannelDehazing) will be skipped.")
 
-from skimage import exposure, color as skimage_color, filters, restoration
-
-# --- Add project root to Python path if your trainer package is not installed ---
-project_root = os.path.abspath(os.path.dirname(__file__))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-# -----------------------------------------------------------------------------
 
 from .model import ColorCastRemoval
 from .utils import tf_rgb_to_lab_normalized, tf_lab_normalized_to_rgb
@@ -218,12 +210,3 @@ def remove_color_cast(img_path: str, args) -> bytes:
         print(f"Error processing image {img_path}: {e}", flush=True)
 
     print("--- Hybrid Inference Finished ---", flush=True)
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Hybrid Inference Pipeline for Color Cast Removal.")
-    parser.add_argument('--model-path', type=str, required=True, help='Path to the trained .keras model file.')
-    parser.add_argument('--input-path', type=str, required=True, help='Path to an input image or a directory of images.')
-    parser.add_argument('--output-dir', type=str, default=None, help='Directory to save processed images and plots. (Optional)')
-    parser.add_argument('--ground-truth-dir', type=str, default=None, help='Directory containing ground truth images for metric calculation. (Optional, filenames must match inputs)')
-    cli_args = parser.parse_args()
-    run_hybrid_inference(cli_args)
