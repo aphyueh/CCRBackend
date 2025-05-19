@@ -179,10 +179,10 @@ def remove_color_cast(img_path: str) -> Tuple[bytes, str]:
         
         img_rgb_uint8 = cv2.cvtColor(img_bgr_uint8, cv2.COLOR_BGR2RGB)
         raw_input_rgb_np = (img_rgb_uint8 / 255.0).astype(np.float32)
-        resized_input_rgb_np = cv2.resize(raw_input_rgb_np, (IMG_WIDTH, IMG_HEIGHT), interpolation=cv2.INTER_AREA)
+        # resized_input_rgb_np = cv2.resize(raw_input_rgb_np, (IMG_WIDTH, IMG_HEIGHT), interpolation=cv2.INTER_AREA)
 
         print("  Applying pre-processing...", flush=True)
-        preprocessed_rgb_np = preprocess_image_hybrid(resized_input_rgb_np)
+        preprocessed_rgb_np = preprocess_image_hybrid(raw_input_rgb_np)
         
         preprocessed_rgb_tensor_batched = tf.convert_to_tensor(np.expand_dims(preprocessed_rgb_np, axis=0), dtype=tf.float32)
         input_lab_tf_batched = tf_rgb_to_lab_normalized(preprocessed_rgb_tensor_batched)
