@@ -1,4 +1,5 @@
 import tensorflow as tf
+from typing import Tuple
 import os
 import sys
 import numpy as np
@@ -162,7 +163,7 @@ def postprocess_image_hybrid(rgb_image_np_0_1):
     return np.clip(final_rgb_np, 0.0, 1.0).astype(np.float32)
 
 # --- Main Inference Function ---
-def remove_color_cast(img_path: str, args) -> bytes:
+def remove_color_cast(img_path: str) -> Tuple[bytes, str]:
     print(f"--- Starting Hybrid Inference ---", flush=True)
     print(f"Arguments: {args}", flush=True)
     print(f"\nProcessing image {img_path}", flush=True)

@@ -92,7 +92,7 @@ def inference():
     with tempfile.NamedTemporaryFile(suffix=filename_ext, delete=False) as temp_input:
         image.save(temp_input.name)
         input_path = temp_input.name
-        print("[*] Saved the image into /tmp", flush=True)
+        print(f"[*] Saved the image into {input_path}", flush=True)
         
     try:
         # Process the image and get a temporary output path
