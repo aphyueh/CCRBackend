@@ -177,7 +177,6 @@ def remove_color_cast(img_path: str, args) -> bytes:
     
     try:
         img_bgr_uint8 = cv2.imread(img_path)
-        if img_bgr_uint8 is None: print(f"Warning: Could not read image {img_path}. Skipping."); continue
         
         img_rgb_uint8 = cv2.cvtColor(img_bgr_uint8, cv2.COLOR_BGR2RGB)
         raw_input_rgb_np = (img_rgb_uint8 / 255.0).astype(np.float32)
@@ -216,7 +215,7 @@ def remove_color_cast(img_path: str, args) -> bytes:
         return image_bytes, img_format
 
     except Exception as e:
-        print(f"Error processing image {img_path}: {e}", flush=True); import traceback; traceback.print_exc()
+        print(f"Error processing image {img_path}: {e}", flush=True)
 
     print("--- Hybrid Inference Finished ---", flush=True)
 
