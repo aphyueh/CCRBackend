@@ -171,12 +171,15 @@ def postprocess_image_hybrid(rgb_image_np_0_1):
 
 # --- Main Inference Function ---
 def remove_color_cast(img_path: str) -> Tuple[bytes, str]:
+    global _model  
+    if _model is None:
+        initialize_model()
+        
     print(f"--- Starting Hybrid Inference ---", flush=True)
     print(f"\nProcessing image {img_path}", flush=True)
     
     try:
         img_bgr_uint8 = cv2.imread(img_path)
-        
         img_rgb_uint8 = cv2.cvtColor(img_bgr_uint8, cv2.COLOR_BGR2RGB)
         raw_input_rgb_np = (img_rgb_uint8 / 255.0).astype(np.float32)
         # resized_input_rgb_np = cv2.resize(raw_input_rgb_np, (IMG_WIDTH, IMG_HEIGHT), interpolation=cv2.INTER_AREA)

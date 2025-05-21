@@ -1,16 +1,16 @@
 # Color Cast Removal (CCR) Backend
 
-A high-performance backend service for automatic color cast removal from images, powered by deep learning and deployed on Google Cloud Run for global accessibility.
+A high-performance backend service for automatic color cast removal from images, powered by deep learning and deployed on Google Cloud Run for global accessibility with RESTful API endpoints.
 
 ## Overview
 
-The Color Cast Removal backend is a production-ready API service that automatically detects and corrects color casts in images. Built with state-of-the-art deep learning models and deployed on Google Cloud infrastructure, it provides fast, reliable color correction capabilities accessible via REST API.
+The Color Cast Removal backend is a production-ready API service that automatically detects and corrects color casts in images. Built with state-of-the-art deep learning models, Flask and Tensorflow, the service processes uplaoded images through a sophisticated color correction pipeline and returns the processed results for improved visual quality.
 
 ## Features
 
-- **Automatic Color Cast Detection**: Advanced deep learning algorithms identify and quantify color casts
+- **Automatic Color Cast Detection**: Advanced hybrid deep learning algorithms identify and quantify color casts
 - **Real-time Processing**: Optimized inference pipeline for quick image processing
-- **Scalable Architecture**: Deployed on Google Cloud Run for automatic scaling
+- **Scalable Architecture**: Containerized andDeployed on Google Cloud Run for automatic scaling
 - **RESTful API**: Simple HTTP endpoints for easy integration
 - **Multiple Input Formats**: Support for various image formats (JPEG, PNG, etc.)
 - **Production Ready**: Robust error handling, CORS support and monitoring
@@ -36,11 +36,9 @@ The Color Cast Removal backend is a production-ready API service that automatica
 - **Flask-CORS 3.0.10**: Cross-Origin Resource Sharing support for web applications
 - **Gunicorn 20.1.0**: Python WSGI HTTP Server for production deployment
 
-
-
 ### **Machine Learning & Computer Vision**
 - **Tensorflow >= 2.8.0**: Open-source machine learning framework for model inference
-- **OpenCV (opencv-python-headless ≥4.5.0)**: Computer vision library for image processing
+- **OpenCV (opencv-contrib-python-headless>=4.5.0)**: Computer vision library for image processing
 - **NumPy 1.26.4**: Numerical computing for efficient array operations
 - **Pillow (PIL)**: Python Imaging Library for image 
 - **scikit-image 0.25.2**: Image processing algorithms and utilities
@@ -75,15 +73,23 @@ CCRBackend/
 
 ### `main.py`
 - Flask application setup and configuration
-- API endpoint definitions and routing
 - CORS middleware and security settings
 - Error handling and response formatting
+- RESTful API endpoint definitions:
+   - `/api/inference`: Primary color cast removal endpoint
+   - `/api/adjust`: Manual image adjustment endpoint
+   - `/api/histogram`: Image histogram analysis
+   - `/api/init_model`: Model initialization endpoint
+   - `/api/cleanup`: Maintenance endpoints
 
 ### `inference_pipeline.py`
+- Implements color cast correction algorithms `remove_color_cast()` function using TensorFlow models
+- Image format conversion and optimization
 - Image preprocessing and postprocessing pipelines
+- Leverages OpenCV, scikit-image, and NumPy for image transformations
+- Optional advanced dehazing via OpenCV's ximgproc module
 - Model inference orchestration
 - Color cast correction algorithms
-- Performance optimization logic
 
 ### `model.py`
 - Neural network architecture definitions
@@ -104,6 +110,11 @@ CCRBackend/
 - Logging setup
 - Helper functions for common operations
 
+### `Dockerfile`
+- Based on Python 3.10 slim image
+- Configures Gunicorn WSGI server on port 8080
+- Sets up environment for Flask application
+
 ## Deployment
 
 The service is deployed on **Google Cloud Run**, providing:
@@ -120,40 +131,10 @@ The service is deployed on **Google Cloud Run**, providing:
 3. **Load Balancing**: Built-in load balancing for high availability
 4. **Monitoring**: Integrated with Google Cloud Monitoring
 
-## API Endpoints
-
-### Health Check
-```
-GET /health
-```
-Returns service health status and version information.
-
-### Color Cast Removal
-```
-POST /remove-color-cast
-```
-Processes uploaded images to remove color casts using TensorFlow model.
-
-**Request Format:**
-- Content-Type: `multipart/form-data`
-- File: Image file (JPEG, PNG, BMP etc.)
-
-**Response Format:**
-```json
-{
-  "status": "success",
-  "processed_image": "base64_encoded_image",
-  "processing_time": 1.23,
-  "cast_detected": true,
-  "cast_strength": 0.75,
-  "model_version": "v1.2.0"
-}
-```
-
-## 🔧 Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.10+
 - TensorFlow 2.8+
 - Docker (for containerization)
 - Google Cloud SDK (for deployment)
@@ -180,22 +161,99 @@ Processes uploaded images to remove color casts using TensorFlow model.
 
 1. **Build and push to Container Registry**
    ```bash
-   gcloud builds submit --tag gcr.io/[PROJECT-ID]/ccr-backend
+   gcloud builds submit --tag gcr.io/[PROJECT-ID]/[backend-name]
    ```
 
 2. **Deploy to Cloud Run**
    ```bash
-   gcloud run deploy ccr-backend \
-     --image gcr.io/[PROJECT-ID]/ccr-backend \
+   gcloud run deploy [backend-name] \
+     --image gcr.io/[PROJECT-ID]/[backend-name] \
      --platform managed \
      --region us-central1 \
      --allow-unauthenticated
    ```
 
+## API Endpoints
+### Hello World Test
+```
+GET /api/hello
+```
+Simple test endpoint returning a `json` greeting message.
+
+### Health Check
+```
+GET /health
+```
+Returns service health status and version information.
+
+### Color Cast Removal
+```
+POST /api/inference
+```
+Processes images to automatically remove color casts.
+
+**Request Format:**
+
+- Content-Type: `multipart/form-data`
+- Form Field: `image` (file upload)
+
+**Response:**
+- Processed image file as attachment
+
+### Manual Image Adjustment
+```
+POST /api/adjust
+```
+Manually adjust image properties like brightness and temperature.
+
+**Request Format:**
+
+- Content-Type: multipart/form-data
+- Form Field: image (file upload)
+- Form Fields (optional):
+
+   - brightness (float): Range typically -100 to 100
+   - contrast (float): Range typically -100 to 100
+   - saturation (float): Range typically -100 to 100
+   - temperature (float): Range typically -100 to 100 (negative: cool, positive: warm)
+
+**Response:** 
+- Adjusted image in PNG format
+
+### Histogram Analysis
+```
+POST /api/histogram
+```
+Generates RGB channel histograms for the uploaded image.
+
+**Request Format:**
+
+- Content-Type: `multipart/form-data`
+- Form Field: image (file upload)
+
+**Response Format:**
+```json
+json{
+  "r": [0, 1, 5, ...],  // 256 values for red channel
+  "g": [2, 3, 8, ...],  // 256 values for green channel
+  "b": [1, 4, 7, ...]   // 256 values for blue channel
+}
+```
+### Model Management
+```
+POST /api/init_model
+```
+Initializes the TensorFlow model for inference.
+
+```
+POST /api/cleanup
+```
+Cleans up temporary files created during processing.
+
 ## Technical Details
 
 ### Model Architecture
-The color cast removal model uses a deep neural network: https://github.com/k-cmy/color_cast_removal specifically designed for color correction tasks:
+The color cast removal model uses a [deep neural network](https://github.com/k-cmy/color_cast_removal) specifically designed for color correction tasks:
 
 - **Input**: RGB images of variable sizes
 - **Architecture**: Custom CNN with attention mechanisms
@@ -257,7 +315,7 @@ For questions, issues, or support:
 
 **Note**: This backend service is part of a larger color cast removal application ecosystem. For the complete solution, check out the related frontend repositories https://github.com/aphyueh/CCRWebsite.
 
-## 🔄 Version History
+## Version History
 
 - **v1.0.0**: Initial release with core color cast removal functionality
 - **v1.1.0**: Performance optimizations and improved error handling

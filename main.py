@@ -5,7 +5,6 @@ from flask_cors import CORS
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 import io
-# from model.inference import remove_color_cast, initialize_model
 from model.inference_pipeline import remove_color_cast, initialize_model
 import numpy as np
 import os
@@ -15,7 +14,7 @@ import tempfile
 import uuid
 
 app = Flask(__name__)
-CORS(app, origins=["https://ccrwebsite-1005035431569.asia-southeast1.run.app"], supports_credentials=True)  
+CORS(app, origins=["https://ccrfrontend-1005035431569.asia-southeast1.run.app"], supports_credentials=True)  
 
 BUCKET_NAME = "cityscapes-dataset-package3"
 TEMP_DIR = "/tmp/adjusted"
@@ -43,18 +42,6 @@ def list_tmp_files():
     if os.path.exists(TEMP_DIR):
         return {'files': os.listdir(TEMP_DIR)}, 200
     return {'files': []}, 200
-
-# def upload_to_bucket(bucket_name, file_obj, destination_blob_name, content_type):
-#     bucket = storage_client.bucket(bucket_name)
-#     print("Bucket:", bucket, flush=True)
-#     blob = bucket.blob(destination_blob_name)
-#     print("Blob:", blob, flush=True)
-#     print("Content type:", content_type, flush=True)
-#     blob.upload_from_file(file_obj)
-#     print("Uploaded from file!")
-#     blob.make_public() 
-#     print("Blob URL:", blob.public_url)
-#     return blob.public_url
 
 def main_remove_color_cast(
     img_bytes: bytes
@@ -108,90 +95,6 @@ def inference():
         filename = f"processed_{str(uuid.uuid4())[:8]}_{image.filename}"
         mimetype = f"image/{img_format.lower()}" if img_format.lower() != "jpeg" else "image/jpeg"
         return send_file(output_file_path, mimetype=mimetype, as_attachment=True,  download_name=filename)
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/process', methods=['POST'])
-def process_image():
-    print("[INFO] Received request to process image", flush=True)
-    if 'image' not in request.files:
-        print("[ERROR] No image part in request.files", flush=True)
-        return jsonify({'error': 'No image uploaded'}), 400
-
-    image = request.files['image']
-    if image.filename == '':
-        print("[ERROR] Empty filename", flush=True)
-        return jsonify({'error': 'No selected file'}), 400
-
-    print("[*] Received file:", image.filename, flush=True)
-
-    # Get file extension
-    filename_ext = os.path.splitext(image.filename)[1].lower()
-    if filename_ext not in ['.jpg', '.jpeg', '.png', '.bmp']:
-        return jsonify({'error': 'Unsupported file type'}), 400
-
-    # Create a temporary file for the input image
-    with tempfile.NamedTemporaryFile(suffix=filename_ext, delete=False) as temp_input:
-        image.save(temp_input.name)
-        input_path = temp_input.name
-        print("[*] Saved the image into /tmp", flush=True)
-        
-    try:
-        with open(input_path, 'rb') as f:
-            img_bytes = f.read()
-
-        # Process the image and get a temporary output path
-        output_path = main_remove_color_cast(img_bytes)
-        print("[*] Successfully processed image", flush=True)
-
-        filename = f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
-        # response = send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
-        # response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
-        return send_file(output_path, mimetype="image/png", as_attachment=True,  download_name=filename)
-
-        # return send_file(
-        #     output_path,
-        #     mimetype="image/png",
-        #     as_attachment=True,
-        #     download_name=f"processed_{str(uuid.uuid4())[:6]}_{image.filename}"
-        # )
-        # # Reset the file pointer and upload original image
-        # image.seek(0)
-        # print("[*] Reset file pointer", flush=True)
-        # before_blob_name = f"uploads/before_{filename}"
-        # before_url = upload_to_bucket(
-        #     BUCKET_NAME, 
-        #     image, 
-        #     f"uploads/before_{filename}", 
-        #     content_type=image.content_type or 'image/jpeg'
-        # )
-        # print("[*] Successfully uploaded input image to bucket", flush=True)
-
-        # after_blob_name = f"uploads/after_{filename}"
-        
-        # # Upload the processed image
-        # with open(output_path, 'rb') as processed_file:
-        #     after_url = upload_to_bucket(
-        #         BUCKET_NAME,
-        #         processed_file,
-        #         after_blob_name,
-        #         content_type=image.content_type or 'image/jpeg'
-        #     )
-        # print("[#] Successfully uploaded output image to bucket", flush=True)
-                
-        # Clean up temporary files
-        # os.unlink(input_path)
-        # if output_path != input_path:
-        #     os.unlink(output_path)
-
-        # print("[#] Successfully cleaned up temporary files", flush=True)
-        
-        # return jsonify({
-        #     # 'message': 'Image processed successfully',
-        #     # 'before_url': before_url,
-        #     'after_url': after_url
-        # })
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
